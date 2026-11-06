@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light}
+body{margin:0;font:14px system-ui,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>Đọc Màu Tem</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{
+  /* Bố cục: một cột cho điện thoại. Khung ngắm ở trên, kết quả và thao tác ở giữa, thanh tab cố định ở đáy. */
+  --bg:#F1F2F8; --surface:#FFFFFF; --ink:#161A30; --ink2:#586079; --line:#D6DAE8;
+  --accent:#5646D8; --on-accent:#FFFFFF; --accent-soft:#E7E4FB; --accent-ink:#3A2DB0;
+  --good:#17805A; --good-bg:#DCF2E7; --warn:#94590A; --warn-bg:#FBEACB;
+  --bad:#B8362F; --bad-bg:#FAE0DD; --na:#586079; --na-bg:#E6E8F2;
+  --cam-bg:#0A0C16; --cam-ink:#FFFFFF;
+  --font:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1120; --surface:#171B30; --ink:#ECEEF9; --ink2:#A2A9C4; --line:#2B3152;
+    --accent:#8F85FF; --on-accent:#0E1120; --accent-soft:#272A55; --accent-ink:#D3CFFF;
+    --good:#4DC48C; --good-bg:#16372B; --warn:#E3AC4F; --warn-bg:#3B2E14;
+    --bad:#F2766E; --bad-bg:#3E1D1B; --na:#A2A9C4; --na-bg:#232842;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1120; --surface:#171B30; --ink:#ECEEF9; --ink2:#A2A9C4; --line:#2B3152;
+  --accent:#8F85FF; --on-accent:#0E1120; --accent-soft:#272A55; --accent-ink:#D3CFFF;
+  --good:#4DC48C; --good-bg:#16372B; --warn:#E3AC4F; --warn-bg:#3B2E14;
+  --bad:#F2766E; --bad-bg:#3E1D1B; --na:#A2A9C4; --na-bg:#232842;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--font);-webkit-text-size-adjust:100%}
+h1,h2,p,ul,dl,dd{margin:0}
+.app{width:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px;
+  padding-block:14px 108px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:1.3rem;font-weight:700;letter-spacing:-.01em;line-height:1.2;text-wrap:balance}
+h2{font-size:1rem;font-weight:700;text-wrap:balance}
+.sub{color:var(--ink2);font-size:.8rem}
+.chip{font-size:.72rem;font-weight:600;padding:6px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
+.hint{color:var(--ink2);font-size:.84rem}
+.foot{color:var(--ink2);font-size:.76rem;text-align:center}
+.view{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* khung ngắm */
+.vf{position:relative;aspect-ratio:4/3;max-width:100%;border-radius:18px;overflow:hidden;background:var(--cam-bg)}
+.vf video,.vf img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ring{position:absolute;left:50%;top:50%;width:30%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;
+  border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.5),0 0 0 999px rgba(0,0,0,.32);pointer-events:none}
+.ring::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.vf-msg{position:absolute;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;
+  padding:20px;text-align:center;color:var(--cam-ink);background:rgba(10,12,22,.88);font-size:.9rem}
+.vf-msg-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.vf-live{position:absolute;right:10px;top:10px}
+
+/* nút */
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 .95rem/1 var(--font);
+  min-height:48px;padding:0 16px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:focus-visible,.tab:focus-visible,.sample:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn-small{min-height:40px;padding:0 12px;font-size:.84rem}
+.btn-ondark{background:var(--cam-ink);border-color:var(--cam-ink);color:#10142A}
+.btn-danger{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:default}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions .btn-primary{flex:1 1 150px}
+
+/* thẻ và kết quả */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.verdict{display:flex;gap:14px;align-items:center}
+.swatch{width:64px;height:64px;border-radius:50%;flex:none;border:1px solid var(--line);box-shadow:inset 0 0 0 3px var(--surface)}
+.v-name{font-size:1.5rem;font-weight:700;line-height:1.15;color:var(--lv,var(--ink))}
+.pill{display:inline-block;margin-bottom:4px;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;color:var(--lv,var(--na));background:var(--lv-bg,var(--na-bg))}
+.lv-fresh{--lv:var(--good);--lv-bg:var(--good-bg)}
+.lv-semi{--lv:var(--warn);--lv-bg:var(--warn-bg)}
+.lv-bad{--lv:var(--bad);--lv-bg:var(--bad-bg)}
+.lv-na{--lv:var(--na);--lv-bg:var(--na-bg)}
+.gauge{position:relative;height:12px;margin:14px 8px 0}
+.gauge-bar{position:absolute;inset:0;border-radius:6px;background:linear-gradient(90deg,#6A5BE0 0%,#4B8FD8 36%,#4FB08F 64%,#93C050 100%)}
+.gauge-tick{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--surface);opacity:.75}
+.gauge-pin{position:absolute;top:-5px;width:4px;height:22px;margin-left:-2px;border-radius:2px;background:var(--ink);box-shadow:0 0 0 2px var(--surface)}
+.gauge-lab{display:flex;justify-content:space-between;font-size:.74rem;color:var(--ink2);margin:0 8px}
+.vals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
+.vals dt{font-size:.7rem;color:var(--ink2);letter-spacing:.05em;text-transform:uppercase}
+.vals dd{font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tips-h{font-size:.74rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2)}
+.tips{padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.sep{border:0;border-top:1px solid var(--line);margin:2px 0;width:100%}
+.samples{display:flex;gap:8px;flex-wrap:wrap}
+.sample{appearance:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 12px 0 8px;border-radius:999px;
+  border:1px solid var(--line);background:var(--bg);color:var(--ink);font:600 .82rem var(--font);cursor:pointer}
+.sample i{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);display:block}
+
+/* biểu mẫu */
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field span{font-size:.74rem;color:var(--ink2);font-weight:600}
+.field input,.field select,#csvBox{width:100%;min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:0 10px;font:inherit}
+#csvBox{padding:10px;min-height:120px;font-size:.78rem;font-variant-numeric:tabular-nums}
+.field input:focus-visible,.field select:focus-visible,#csvBox:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+
+/* hiệu chuẩn và nhật ký */
+.rows{display:flex;flex-direction:column;gap:10px}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.row .grow{flex:1 1 120px;min-width:0}
+.row .name{font-weight:700}
+.row .meta{font-size:.78rem;color:var(--ink2)}
+.dot{width:36px;height:36px;border-radius:50%;flex:none;border:1px solid var(--line);background:repeating-linear-gradient(45deg,var(--bg),var(--bg) 4px,var(--line) 4px,var(--line) 5px)}
+.row-btns{display:flex;gap:8px}
+.log-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.count{font-size:.78rem;color:var(--ink2)}
+.log-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.log-item:first-child{border-top:0}
+.log-item .dot{width:30px;height:30px;background:none}
+.log-main{flex:1;min-width:0}
+.log-main b{font-weight:600}
+.log-main small{display:block;color:var(--ink2);font-size:.76rem;font-variant-numeric:tabular-nums}
+.empty{color:var(--ink2);font-size:.88rem}
+
+/* thanh tab */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);
+  padding:8px max(16px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.nav-in{display:flex;gap:6px;width:100%;max-width:560px;margin:0 auto}
+.tab{appearance:none;flex:1;min-height:48px;border:0;border-radius:10px;background:transparent;color:var(--ink2);font:600 .84rem var(--font);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent-soft);color:var(--accent-ink)}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);
+  background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;font-size:.86rem;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:6;text-align:center}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div>
+      <h1>Đọc Màu Tem</h1>
+      <p class="sub">Tem hoa đậu biếc · độ tươi cá, mực, tôm</p>
+    </div>
+    <span class="chip" id="modeChip">Ngưỡng mặc định</span>
+  </header>
+
+  <div class="vf" id="vf">
+    <video id="cam" playsinline muted autoplay></video>
+    <img id="still" alt="Ảnh tem đã chụp" hidden>
+    <div class="ring" aria-hidden="true"></div>
+    <div class="vf-msg" id="vfMsg" hidden>
+      <p id="vfMsgText">Đang mở camera…</p>
+      <div class="vf-msg-actions" id="vfMsgActions" hidden>
+        <button type="button" class="btn btn-small btn-ondark" id="btnRetry">Thử lại camera</button>
+        <button type="button" class="btn btn-small btn-ondark" data-photo>Chụp ảnh</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-small btn-ondark vf-live" id="btnLive" hidden>Dùng camera trực tiếp</button>
+  </div>
+  <p class="hint" id="vfHint">Đặt tem vào giữa vòng tròn, chỗ sáng đều, tránh bóng và chói. App đọc màu trong vòng tròn.</p>
+
+  <main class="view" id="v-read">
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="btnRead">Đọc màu</button>
+      <button type="button" class="btn" data-photo>Chụp ảnh</button>
+    </div>
+    <p class="hint" id="whiteHint"></p>
+    <article class="card" id="res" aria-live="polite"></article>
+    <p class="foot">Kết quả mang tính tham khảo, không thay thế kiểm nghiệm an toàn thực phẩm.</p>
+  </main>
+
+  <section class="view" id="v-cal" hidden>
+    <div class="card">
+      <h2>Hiệu chuẩn bằng mẫu của nhóm</h2>
+      <p class="hint">Đặt tem vào vòng tròn, bấm “Thêm mẫu” ở đúng mức độ tươi (đã đối chiếu bằng pH và cảm quan). Có đủ 3 mức, app so màu với mẫu của nhóm thay cho ngưỡng mặc định. Mỗi mức nên có từ 5 mẫu trở lên.</p>
+      <div class="rows" id="calRows"></div>
+    </div>
+    <div class="card">
+      <h2>Mốc trắng</h2>
+      <p class="hint">Hướng camera vào tờ giấy trắng, cùng chỗ sáng với tem, rồi bấm “Lấy mốc”. App chỉnh màu theo mốc này để bớt lệch do ánh đèn. Lấy mốc trước khi thêm mẫu hiệu chuẩn.</p>
+      <div class="rows" id="whiteRow"></div>
+    </div>
+    <button type="button" class="btn btn-danger" id="btnResetCal">Xóa toàn bộ hiệu chuẩn</button>
+  </section>
+
+  <section class="view" id="v-log" hidden>
+    <div class="card">
+      <div class="log-head"><h2>Nhật ký đo</h2><span class="count" id="logCount"></span></div>
+      <div id="logList"></div>
+      <textarea id="csvBox" rows="6" readonly hidden aria-label="Dữ liệu CSV"></textarea>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btnCsv">Sao chép CSV</button>
+        <button type="button" class="btn btn-danger" id="btnClearLog">Xóa nhật ký</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<nav class="nav" aria-label="Màn hình">
+  <div class="nav-in">
+    <button type="button" class="tab" data-tab="read" aria-selected="true">Đọc màu</button>
+    <button type="button" class="tab" data-tab="cal" aria-selected="false">Hiệu chuẩn</button>
+    <button type="button" class="tab" data-tab="log" aria-selected="false">Nhật ký</button>
+  </div>
+</nav>
+<input type="file" id="photo" accept="image/*" capture="environment" hidden>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+
+/*LOGIC-START*/
+const IDX_SEMI = 25, IDX_BAD = 65, UNKNOWN_DE = 40;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+function rgbToHsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d > 0) {
+    if (mx === r) h = ((g - b) / d) % 6;
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return { h, s: mx === 0 ? 0 : d / mx, v: mx };
+}
+
+function rgbToLab(r, g, b) {
+  const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const R = lin(r), G = lin(g), B = lin(b);
+  const X = (R * 0.4124564 + G * 0.3575761 + B * 0.1804375) / 0.95047;
+  const Y = R * 0.2126729 + G * 0.7151522 + B * 0.0721750;
+  const Z = (R * 0.0193339 + G * 0.1191920 + B * 0.9503041) / 1.08883;
+  const f = t => t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116;
+  const fx = f(X), fy = f(Y), fz = f(Z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+const deltaE = (p, q) => Math.hypot(p.L - q.L, p.a - q.a, p.b - q.b);
+
+// Trung bình đã cắt 10% điểm sáng nhất và tối nhất để bỏ vệt chói và bóng.
+function trimmedMean(px) {
+  const a = px.map(p => ({ p, y: 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2] })).sort((u, v) => u.y - v.y);
+  const cut = Math.floor(a.length * 0.1);
+  let keep = a.slice(cut, a.length - cut);
+  if (!keep.length) keep = a;
+  const n = keep.length || 1;
+  let r = 0, g = 0, b = 0;
+  for (const k of keep) { r += k.p[0]; g += k.p[1]; b += k.p[2]; }
+  return [r / n, g / n, b / n];
+}
+
+// Chỉnh từng kênh để mốc trắng về 255.
+function whiteBalance(rgb, white) {
+  if (!white) return rgb.slice();
+  return rgb.map((c, i) => clamp(c / Math.max(white[i], 1) * 255, 0, 255));
+}
+
+function hasCal(cal) {
+  return !!cal && ['fresh', 'semi', 'bad'].every(k => Array.isArray(cal[k]) && cal[k].length > 0);
+}
+
+function centroid(samples) {
+  let L = 0, a = 0, b = 0;
+  for (const s of samples) { const t = rgbToLab(s[0], s[1], s[2]); L += t.L; a += t.a; b += t.b; }
+  const n = samples.length;
+  return { L: L / n, a: a / n, b: b / n };
+}
+
+// Trả về { mode, status, level, idx }. status: ok | dark | pale | out | unknown.
+function readColor(rgb, cal) {
+  const hsv = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+  if (hasCal(cal)) {
+    if (hsv.v < 0.15) return { mode: 'cal', status: 'dark' };
+    const lab = rgbToLab(rgb[0], rgb[1], rgb[2]);
+    const C = { fresh: centroid(cal.fresh), semi: centroid(cal.semi), bad: centroid(cal.bad) };
+    let level = 'fresh', best = Infinity;
+    for (const k of ['fresh', 'semi', 'bad']) {
+      const d = deltaE(lab, C[k]);
+      if (d < best) { best = d; level = k; }
+    }
+    const vx = C.bad.L - C.fresh.L, va = C.bad.a - C.fresh.a, vb = C.bad.b - C.fresh.b;
+    const len2 = vx * vx + va * va + vb * vb;
+    const t = len2 > 1e-6 ? ((lab.L - C.fresh.L) * vx + (lab.a - C.fresh.a) * va + (lab.b - C.fresh.b) * vb) / len2 : 0;
+    const idx = clamp(t * 100, 0, 100);
+    if (best > UNKNOWN_DE) return { mode: 'cal', status: 'unknown', idx };
+    return { mode: 'cal', status: 'ok', level, idx };
+  }
+  if (hsv.v < 0.18) return { mode: 'default', status: 'dark' };
+  if (hsv.s < 0.12) return { mode: 'default', status: 'pale' };
+  if (hsv.h >= 305 || hsv.h < 35) return { mode: 'default', status: 'out' };
+  const idx = clamp((260 - hsv.h) / 160 * 100, 0, 100);
+  const level = idx < IDX_SEMI ? 'fresh' : idx < IDX_BAD ? 'semi' : 'bad';
+  return { mode: 'default', status: 'ok', level, idx };
+}
+/*LOGIC-END*/
+
+// ---------- lưu trữ ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('dmt.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('dmt.' + k, JSON.stringify(v)); } catch (e) { /* bỏ qua */ } }
+};
+const state = {
+  white: store.get('white', null),
+  cal: store.get('cal', { fresh: [], semi: [], bad: [] }),
+  log: store.get('log', [])
+};
+for (const k of ['fresh', 'semi', 'bad']) if (!Array.isArray(state.cal[k])) state.cal[k] = [];
+
+// ---------- nội dung chữ ----------
+const LV = {
+  fresh: { name: 'Còn tươi', cls: 'lv-fresh', code: 'Tươi', tips: [
+    'Giữ lạnh 0–4 °C và dùng trong ngày.',
+    'Chế biến hoặc cấp đông sớm; không để ngoài nhiệt độ phòng lâu.',
+    'Nếu để ngoài, đọc lại tem sau vài giờ.'] },
+  semi: { name: 'Sắp ươn', cls: 'lv-semi', code: 'Sắp ươn', tips: [
+    'Nên chế biến ngay, nấu chín kỹ.',
+    'Kiểm tra thêm mùi và độ đàn hồi của thịt; tem chỉ là tham khảo.',
+    'Không để lại qua đêm, không đông lạnh rồi dùng lại nhiều lần.'] },
+  bad: { name: 'Đã ươn', cls: 'lv-bad', code: 'Ươn', tips: [
+    'Không nên dùng làm thực phẩm.',
+    'Bọc kín, bỏ vào thùng rác; rửa tay và dụng cụ đã chạm vào.',
+    'Ghi vào nhật ký để đối chiếu với pH và cảm quan.'] }
+};
+const NA = {
+  dark: { name: 'Ảnh quá tối', code: 'Không đọc được', tips: ['Tăng ánh sáng, tránh bóng che lên tem.', 'Bấm Đọc màu lại.'] },
+  pale: { name: 'Màu quá nhạt', code: 'Không đọc được', tips: ['Tem chưa đủ đậm màu hoặc bị chói; xoay tem tránh ánh đèn.', 'Nếu tem nhạt thường xuyên, tăng nồng độ dịch chiết hoặc hiệu chuẩn lại.'] },
+  out: { name: 'Ngoài khoảng đọc', code: 'Không đọc được', tips: ['Màu hồng hoặc đỏ thường do tem dính axit (chanh, giấm). Dùng tem mới.', 'Giữ tem khô, tránh chạm tay và nước.'] },
+  unknown: { name: 'Màu lạ', code: 'Không đọc được', tips: ['Màu này khác xa các mẫu hiệu chuẩn.', 'Thêm mẫu hiệu chuẩn ở tab Hiệu chuẩn, hoặc đọc lại.'] }
+};
+const SAMPLES = {
+  fresh: { rgb: [96, 88, 200], label: 'Màu mẫu tươi' },
+  semi: { rgb: [70, 150, 190], label: 'Màu mẫu sắp ươn' },
+  bad: { rgb: [120, 170, 80], label: 'Màu mẫu ươn' }
+};
+
+// ---------- tiện ích ----------
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const r0 = c => c.map(x => Math.round(x));
+const hex = c => '#' + r0(c).map(x => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+const pad2 = n => String(n).padStart(2, '0');
+const fmtDate = t => { const d = new Date(t); return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+const isoDate = t => { const d = new Date(t); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+const fmtNum = x => String(Math.round(x * 10) / 10);
+let toastTimer = null;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+const armed = new Map();
+function twice(btn, idleText, fn) {
+  if (armed.has(btn)) { clearTimeout(armed.get(btn)); armed.delete(btn); btn.textContent = idleText; fn(); return; }
+  btn.textContent = 'Bấm lần nữa để xóa';
+  armed.set(btn, setTimeout(() => { armed.delete(btn); btn.textContent = idleText; }, 4000));
+}
+
+// ---------- camera ----------
+const video = $('#cam'), still = $('#still'), work = document.createElement('canvas');
+let stream = null, mode = 'live', stillUrl = null;
+
+function setCamState(s) {
+  const msg = $('#vfMsg'), txt = $('#vfMsgText'), act = $('#vfMsgActions');
+  $('#btnLive').hidden = s !== 'photo';
+  if (s === 'ok' || s === 'photo') { msg.hidden = true; return; }
+  msg.hidden = false;
+  if (s === 'wait') { txt.textContent = 'Đang mở camera…'; act.hidden = true; }
+  else { txt.textContent = 'Chưa mở được camera. Hãy cho phép quyền camera, hoặc chụp ảnh tem bằng camera điện thoại.'; act.hidden = false; }
+}
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+async function startCamera() {
+  still.hidden = true; video.hidden = false; mode = 'live';
+  setCamState('wait');
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('khong ho tro');
+    stopCamera();
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    setCamState('ok');
+  } catch (e) { setCamState('fail'); }
+}
+function grabPixels() {
+  const photo = mode === 'photo';
+  const src = photo ? still : video;
+  const sw = photo ? still.naturalWidth : video.videoWidth;
+  const sh = photo ? still.naturalHeight : video.videoHeight;
+  if (!sw || !sh) return null;
+  const side = Math.max(8, Math.round(Math.min(sw, sh) * 0.12));
+  const sx = Math.round((sw - side) / 2), sy = Math.round((sh - side) / 2);
+  work.width = 24; work.height = 24;
+  const ctx = work.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(src, sx, sy, side, side, 0, 0, 24, 24);
+  const d = ctx.getImageData(0, 0, 24, 24).data;
+  const px = [];
+  for (let i = 0; i < d.length; i += 4) px.push([d[i], d[i + 1], d[i + 2]]);
+  return px;
+}
+function sampleNow(applyWhite) {
+  const px = grabPixels();
+  if (!px) { toast('Chưa có hình. Mở camera hoặc chụp ảnh trước.'); return null; }
+  const raw = trimmedMean(px);
+  return applyWhite ? whiteBalance(raw, state.white) : raw;
+}
+
+// ---------- đọc màu ----------
+let current = null;
+let lastForm = { loai: 'Cá', nhiet: 'lanh', gio: '', ph: '' };
+
+function readNow() {
+  const rgb = sampleNow(true);
+  if (!rgb) return;
+  current = { rgb, res: readColor(rgb, state.cal), source: 'cam' };
+  renderResult();
+}
+function readSample(k) {
+  const rgb = SAMPLES[k].rgb.slice();
+  current = { rgb, res: readColor(rgb, state.cal), source: 'sample' };
+  renderResult();
+}
+const placeholderHTML = () => `
+  <h2>Chưa có kết quả</h2>
+  <p class="hint">Bấm “Đọc màu” khi tem nằm trong vòng tròn. Chưa có tem trong tay? Xem thử cách app trả kết quả với màu mẫu:</p>
+  <div class="samples">${Object.keys(SAMPLES).map(k =>
+    `<button type="button" class="sample" data-sample="${k}"><i style="background:rgb(${SAMPLES[k].rgb.join(',')})"></i>${SAMPLES[k].label}</button>`).join('')}</div>`;
+
+function formHTML() {
+  const o = (v, t, cur) => `<option value="${v}"${cur === v ? ' selected' : ''}>${t}</option>`;
+  return `
+  <hr class="sep">
+  <h2>Lưu vào nhật ký</h2>
+  <div class="form">
+    <label class="field"><span>Loại hải sản</span>
+      <select id="fLoai">${['Cá', 'Mực', 'Tôm', 'Khác'].map(v => o(v, v, lastForm.loai)).join('')}</select></label>
+    <label class="field"><span>Giờ bảo quản</span>
+      <input id="fGio" type="number" inputmode="decimal" min="0" step="0.5" placeholder="vd. 12" value="${lastForm.gio}"></label>
+    <label class="field"><span>Nơi bảo quản</span>
+      <select id="fNhiet">${o('lanh', 'Ngăn mát tủ lạnh', lastForm.nhiet)}${o('phong', 'Nhiệt độ phòng', lastForm.nhiet)}</select></label>
+    <label class="field"><span>pH thịt (nếu có)</span>
+      <input id="fPh" type="number" inputmode="decimal" min="0" max="14" step="0.1" placeholder="vd. 6.8" value="${lastForm.ph}"></label>
+  </div>
+  <button type="button" class="btn btn-primary" data-save>Lưu vào nhật ký</button>`;
+}
+function resultHTML(cur) {
+  const { rgb, res, source } = cur;
+  const hsv = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+  const ok = res.status === 'ok';
+  const L = ok ? LV[res.level] : null;
+  const name = ok ? L.name : NA[res.status].name;
+  const cls = ok ? L.cls : 'lv-na';
+  const tips = ok ? L.tips : NA[res.status].tips;
+  const c = r0(rgb);
+  const gauge = res.idx == null ? '' : `
+    <div class="gauge" aria-hidden="true"><div class="gauge-bar"></div>
+      ${res.mode === 'default' ? `<div class="gauge-tick" style="left:${IDX_SEMI}%"></div><div class="gauge-tick" style="left:${IDX_BAD}%"></div>` : ''}
+      <div class="gauge-pin" style="left:${res.idx.toFixed(1)}%"></div></div>
+    <div class="gauge-lab"><span>Tươi</span><span>Sắp ươn</span><span>Ươn</span></div>`;
+  return `
+  <div class="verdict ${cls}">
+    <div class="swatch" style="background:rgb(${c.join(',')})"></div>
+    <div><span class="pill">${source === 'sample' ? 'Màu mẫu' : 'Kết quả'}</span><div class="v-name">${name}</div></div>
+  </div>
+  ${gauge}
+  <dl class="vals">
+    <div><dt>RGB</dt><dd>${c.join(' · ')}</dd></div>
+    <div><dt>Mã màu</dt><dd>${hex(rgb)}</dd></div>
+    <div><dt>Góc màu (hue)</dt><dd>${Math.round(hsv.h)}°</dd></div>
+    <div><dt>Chỉ số màu</dt><dd>${res.idx == null ? '—' : Math.round(res.idx) + ' / 100'}</dd></div>
+    <div><dt>Cách đọc</dt><dd>${res.mode === 'cal' ? 'Theo hiệu chuẩn' : 'Ngưỡng mặc định'}</dd></div>
+    <div><dt>Mốc trắng</dt><dd>${state.white && source === 'cam' ? 'Đã chỉnh' : 'Không dùng'}</dd></div>
+  </dl>
+  <hr class="sep">
+  <p class="tips-h">Gợi ý</p>
+  <ul class="tips">${tips.map(t => `<li>${t}</li>`).join('')}</ul>
+  ${source === 'cam' ? formHTML() : '<p class="hint">Màu mẫu chỉ để xem thử nên không lưu vào nhật ký.</p>'}`;
+}
+function renderResult() {
+  $('#res').innerHTML = current ? resultHTML(current) : placeholderHTML();
+}
+function renderHeader() {
+  const cal = hasCal(state.cal);
+  $('#modeChip').textContent = cal ? 'Hiệu chuẩn của nhóm' : 'Ngưỡng mặc định';
+  $('#whiteHint').textContent = state.white
+    ? 'Đã có mốc trắng: kết quả được chỉnh theo ánh sáng.'
+    : 'Chưa có mốc trắng. Lấy mốc ở tab Hiệu chuẩn để đọc ổn định hơn khi đổi chỗ sáng.';
+}
+
+// ---------- nhật ký ----------
+function saveEntry() {
+  if (!current || current.source !== 'cam') return;
+  const gio = parseFloat($('#fGio').value), ph = parseFloat($('#fPh').value);
+  lastForm = { loai: $('#fLoai').value, nhiet: $('#fNhiet').value, gio: isFinite(gio) ? String(gio) : '', ph: isFinite(ph) ? String(ph) : '' };
+  const hsv = rgbToHsv(current.rgb[0], current.rgb[1], current.rgb[2]);
+  const res = current.res;
+  state.log.unshift({
+    t: Date.now(), loai: lastForm.loai, gio: isFinite(gio) ? gio : null, nhiet: lastForm.nhiet, ph: isFinite(ph) ? ph : null,
+    rgb: r0(current.rgb), h: Math.round(hsv.h), idx: res.idx == null ? null : Math.round(res.idx),
+    kq: res.status === 'ok' ? res.level : 'na', mode: res.mode
+  });
+  store.set('log', state.log);
+  toast('Đã lưu vào nhật ký');
+}
+const kqName = k => k === 'na' ? 'Không đọc được' : LV[k].code;
+function renderLog() {
+  $('#logCount').textContent = state.log.length ? state.log.length + ' lần đọc' : '';
+  const list = $('#logList');
+  if (!state.log.length) {
+    list.innerHTML = '<p class="empty">Chưa có lần đọc nào. Ở tab Đọc màu, bấm Đọc màu rồi Lưu vào nhật ký. Các dòng này là dữ liệu gốc của đề tài.</p>';
+  } else {
+    list.innerHTML = state.log.map(e => {
+      const cls = e.kq === 'na' ? 'lv-na' : LV[e.kq].cls;
+      return `<div class="log-item ${cls}">
+        <div class="dot" style="background:rgb(${e.rgb.join(',')})"></div>
+        <div class="log-main"><b>${e.loai} · ${e.gio == null ? 'chưa ghi giờ' : fmtNum(e.gio) + ' giờ'} · ${e.nhiet === 'phong' ? 'nhiệt độ phòng' : 'tủ lạnh'}</b>
+          <small>${fmtDate(e.t)}${e.ph != null ? ' · pH ' + e.ph : ''}${e.idx != null ? ' · chỉ số ' + e.idx : ''}</small></div>
+        <span class="pill">${kqName(e.kq)}</span></div>`;
+    }).join('');
+  }
+  $('#btnCsv').disabled = !state.log.length;
+  $('#btnClearLog').disabled = !state.log.length;
+}
+function buildCsv() {
+  const head = 'thoi_gian,loai,gio_bao_quan,nhiet_do,pH,R,G,B,hue,chi_so_mau,ket_qua,cach_doc';
+  const rows = state.log.slice().reverse().map(e => [
+    isoDate(e.t), e.loai, e.gio == null ? '' : e.gio, e.nhiet === 'phong' ? 'Phong' : 'Tu lanh', e.ph == null ? '' : e.ph,
+    e.rgb[0], e.rgb[1], e.rgb[2], e.h, e.idx == null ? '' : e.idx, kqName(e.kq), e.mode === 'cal' ? 'hieu_chuan' : 'mac_dinh'].join(','));
+  return [head].concat(rows).join('\n');
+}
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* thử cách khác */ }
+  try {
+    const ta = $('#csvBox');
+    ta.hidden = false; ta.value = text; ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    if (ok) ta.hidden = true;
+    return ok;
+  } catch (e) { return false; }
+}
+
+// ---------- hiệu chuẩn ----------
+const CAL_ROWS = [
+  ['fresh', 'Tươi', 'Mẫu mới mua: thịt chắc, mùi tanh nhẹ'],
+  ['semi', 'Sắp ươn', 'Mẫu để vài giờ, bắt đầu có mùi'],
+  ['bad', 'Ươn', 'Mẫu ươn rõ: mùi nặng, thịt mềm nhớt']
+];
+const meanRgb = arr => arr.reduce((s, c) => [s[0] + c[0], s[1] + c[1], s[2] + c[2]], [0, 0, 0]).map(x => x / arr.length);
+function renderCal() {
+  $('#calRows').innerHTML = CAL_ROWS.map(([k, name, hint]) => {
+    const n = state.cal[k].length;
+    const m = n ? r0(meanRgb(state.cal[k])) : null;
+    return `<div class="row">
+      <div class="dot"${m ? ` style="background:rgb(${m.join(',')})"` : ''}></div>
+      <div class="grow"><div class="name">${name}</div><div class="meta">${n ? n + ' mẫu' : 'Chưa có mẫu'} · ${hint}</div></div>
+      <div class="row-btns">
+        <button type="button" class="btn btn-small btn-primary" data-cal-add="${k}">Thêm mẫu</button>
+        <button type="button" class="btn btn-small" data-cal-del="${k}"${n ? '' : ' disabled'}>Xóa</button>
+      </div></div>`;
+  }).join('');
+  const w = state.white ? r0(state.white) : null;
+  $('#whiteRow').innerHTML = `<div class="row">
+      <div class="dot"${w ? ` style="background:rgb(${w.join(',')})"` : ''}></div>
+      <div class="grow"><div class="name">Mốc trắng</div><div class="meta">${w ? 'RGB ' + w.join(' · ') : 'Chưa có mốc'}</div></div>
+      <div class="row-btns">
+        <button type="button" class="btn btn-small btn-primary" data-white="set">Lấy mốc</button>
+        <button type="button" class="btn btn-small" data-white="clear"${w ? '' : ' disabled'}>Xóa</button>
+      </div></div>`;
+}
+
+// ---------- chuyển màn hình ----------
+function show(tab) {
+  ['read', 'cal', 'log'].forEach(t => { $('#v-' + t).hidden = t !== tab; });
+  $$('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  $('#vf').hidden = tab === 'log';
+  $('#vfHint').hidden = tab === 'log';
+  if (tab === 'cal') renderCal();
+  if (tab === 'log') renderLog();
+  window.scrollTo(0, 0);
+}
+
+// ---------- sự kiện ----------
+$('#btnRead').addEventListener('click', readNow);
+$('#btnRetry').addEventListener('click', startCamera);
+$('#btnLive').addEventListener('click', startCamera);
+$('#btnCsv').addEventListener('click', async () => {
+  const ok = await copyText(buildCsv());
+  toast(ok ? 'Đã sao chép ' + state.log.length + ' dòng CSV' : 'Không sao chép tự động được. Chọn và sao chép đoạn CSV bên dưới.');
+});
+$('#btnClearLog').addEventListener('click', e => twice(e.currentTarget, 'Xóa nhật ký', () => {
+  state.log = []; store.set('log', state.log); $('#csvBox').hidden = true; renderLog(); toast('Đã xóa nhật ký');
+}));
+$('#btnResetCal').addEventListener('click', e => twice(e.currentTarget, 'Xóa toàn bộ hiệu chuẩn', () => {
+  state.cal = { fresh: [], semi: [], bad: [] }; state.white = null;
+  store.set('cal', state.cal); store.set('white', null);
+  renderCal(); renderHeader(); toast('Đã xóa hiệu chuẩn');
+}));
+$$('.tab').forEach(b => b.addEventListener('click', () => show(b.dataset.tab)));
+$('#photo').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  if (stillUrl) URL.revokeObjectURL(stillUrl);
+  stillUrl = URL.createObjectURL(f);
+  still.onload = () => { stopCamera(); mode = 'photo'; video.hidden = true; still.hidden = false; setCamState('photo'); };
+  still.src = stillUrl;
+  e.target.value = '';
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-photo],[data-sample],[data-save],[data-cal-add],[data-cal-del],[data-white]');
+  if (!t) return;
+  if (t.hasAttribute('data-photo')) { $('#photo').click(); return; }
+  if (t.dataset.sample) { readSample(t.dataset.sample); return; }
+  if (t.hasAttribute('data-save')) { saveEntry(); return; }
+  if (t.dataset.calAdd) {
+    const rgb = sampleNow(true);
+    if (!rgb) return;
+    const list = state.cal[t.dataset.calAdd];
+    list.push(r0(rgb)); if (list.length > 20) list.shift();
+    store.set('cal', state.cal); renderCal(); renderHeader(); toast('Đã thêm mẫu ' + list.length);
+    return;
+  }
+  if (t.dataset.calDel) {
+    state.cal[t.dataset.calDel] = []; store.set('cal', state.cal); renderCal(); renderHeader(); return;
+  }
+  if (t.dataset.white === 'set') {
+    const rgb = sampleNow(false);
+    if (!rgb) return;
+    state.white = r0(rgb); store.set('white', state.white); renderCal(); renderHeader(); toast('Đã lấy mốc trắng');
+    return;
+  }
+  if (t.dataset.white === 'clear') { state.white = null; store.set('white', null); renderCal(); renderHeader(); }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || mode !== 'live') return;
+  const dead = !stream || stream.getTracks().every(t => t.readyState === 'ended');
+  if (dead) startCamera();
+});
+
+renderHeader();
+renderResult();
+startCamera();
+})();
+</script>
+
+</body>
+</html>
